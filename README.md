@@ -1,0 +1,158 @@
+# Quantora
+
+**End-of-Day Portfolio Risk Intelligence**
+
+Quantora is a cloud-native portfolio analytics platform that turns a transaction
+history and end-of-day market data into clear, explainable portfolio valuations,
+performance views, risk metrics, a benchmark comparison, and a simple
+price-shock scenario.
+
+Quantora exists to give an individual investor **educational visibility** into a
+small, long-only portfolio of US-listed equities and ETFs. Many basic trackers
+show current holdings and profit or loss but explain little about concentration,
+historical volatility, drawdowns, benchmark-relative performance, or how fresh
+the underlying data is. Professional risk platforms answer these questions but
+are often too complex or expensive for an educational project. Quantora aims to
+be a credible product that answers questions like *"which holdings dominate my
+portfolio?"*, *"how volatile has it been?"*, and *"what was its largest
+historical decline?"* — **without predicting markets or telling anyone what to
+buy or sell.**
+
+> **Status: under development.** Quantora is being built in phases. This
+> repository currently contains the product and architecture documentation
+> baseline; application code is added in later phases.
+
+---
+
+## What Quantora does (V1 scope)
+
+* **Markets:** US-listed common equities and ETFs only.
+* **Currency:** USD-denominated portfolios only.
+* **Positions:** long-only (no shorts, margin, or leverage).
+* **Data:** end-of-day only, using historical adjusted closing prices.
+* **Holdings:** derived from a transaction ledger (buys and sells); weighted
+  average cost is used for estimated unrealised profit or loss.
+* **Locked V1 metric set:**
+  * Portfolio value
+  * Asset allocation
+  * Estimated unrealised profit or loss
+  * Daily portfolio returns
+  * Annualised volatility (252 trading days, minimum 30 observations)
+  * Maximum drawdown
+  * Concentration (largest holding, top-three, HHI)
+* **One benchmark-comparison workflow** with environment-appropriate real or
+  synthetic benchmark data (actual SPY only in provider-enabled private
+  development where terms permit; deterministic fixtures in automated tests; a
+  clearly labelled fictional broad-market benchmark in the public synthetic
+  demo — never presented as SPY).
+* **One static price-shock scenario** workflow (instantaneous, hypothetical).
+* **Deterministic, neutral explanations** — no generative AI advice.
+
+See the [Product Charter](docs/product/product-charter.md) for the full,
+authoritative V1 definition.
+
+---
+
+## What Quantora is not (non-goals)
+
+Quantora does **not**, and will not in V1/V1.5:
+
+* Execute trades, automate trading, or provide trading signals.
+* Predict prices or provide expected-price targets.
+* Provide buy/hold/sell or personalised investment recommendations.
+* Assess whether an investment is suitable for a user.
+* Provide portfolio optimisation that tells users what to purchase.
+* Offer real-time or streaming data, or intraday charts.
+* Support options, futures, leveraged products, short positions, or margin.
+* Integrate with brokers or expose public API keys / third-party developer
+  access.
+* Generate financial advice with an LLM.
+
+---
+
+## Architecture at a glance
+
+Django is the only public application API. React never calls a FastAPI service
+directly. The two FastAPI services are private, stateless, and sit behind the
+Celery worker. PostgreSQL is the durable source of truth; Redis holds only
+temporary coordination, caching, locks, quotas, and the Celery broker.
+
+```text
+Browser
+   |
+   v
+React application  (Azure Static Web Apps)
+   |
+   v
+Django REST Framework API  (the only public API)
+   |
+   +----------------------+
+   |                      |
+   v                      v
+PostgreSQL              Redis
+                          |
+                          v
+                    Celery worker
+                     |          |
+                     v          v
+             Market-data      Risk-engine
+             FastAPI          FastAPI
+             (private)        (private)
+```
+
+* **Market-data service** owns provider integration and normalization behind an
+  anti-corruption layer.
+* **Risk-engine service** owns deterministic, versioned financial calculations.
+* **Celery worker** orchestrates the services and persists results through
+  Django domain code.
+
+The reasoning behind these boundaries is recorded in the
+[Architecture Decision Records](docs/adr/README.md).
+
+---
+
+## Technology stack
+
+Consistent with the locked stack:
+
+* **Frontend:** React, TypeScript, Vite, [Apache ECharts][echarts] (the only
+  general-purpose charting library), pnpm.
+* **Backend:** Django, Django REST Framework, FastAPI, Pydantic, Celery,
+  PostgreSQL, Redis, pytest; managed with uv.
+* **Local orchestration:** Docker Compose.
+* **Cloud (Azure):** Container Apps (Django, FastAPI services, worker, Beat),
+  Static Web Apps (React), Database for PostgreSQL, Managed Redis, Key Vault,
+  Application Insights.
+* **Infrastructure & CI/CD:** Bicep, GitHub Actions with OIDC (federated
+  credentials — no long-lived Azure secrets).
+
+[echarts]: https://echarts.apache.org/
+
+---
+
+## Documentation
+
+* [Documentation index](docs/README.md)
+* [Product Charter](docs/product/product-charter.md)
+* [Architecture Decision Records](docs/adr/README.md)
+  * [ADR 001 — Market Data Strategy](docs/adr/0001-market-data-strategy.md)
+  * [ADR 002 — Asynchronous Job Strategy](docs/adr/0002-asynchronous-job-strategy.md)
+  * [ADR 003 — Service Boundaries](docs/adr/0003-service-boundaries.md)
+* [Roadmap](docs/roadmap.md) and [Roadmap corrections](docs/roadmap-corrections.md)
+* [Glossary](docs/glossary.md)
+
+Contributor and security information:
+
+* [Contributing guide](CONTRIBUTING.md)
+* [Security policy](SECURITY.md)
+* [License](LICENSE) — MIT
+
+---
+
+## Disclaimer
+
+> Quantora provides educational portfolio analytics based on historical
+> end-of-day data. Results are estimates and may be delayed, incomplete, or
+> inaccurate. Quantora does not provide investment advice, recommendations,
+> forecasts, brokerage services, tax advice, or suitability assessments. Do not
+> rely on Quantora as the sole basis for a financial decision.

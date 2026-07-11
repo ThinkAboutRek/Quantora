@@ -1,0 +1,109 @@
+# ---------------------------------------------------------------------------
+# Quantora .gitignore
+#
+# Goals:
+#   * Keep Python, Node, Docker, and editor artefacts out of the repository.
+#   * Never commit real secrets or local environment files.
+#   * Never commit market-data provider responses or licensed/downloaded data.
+#     (See ADR 001: Market Data Strategy — provider responses are never
+#     committed to the public repository.)
+# ---------------------------------------------------------------------------
+
+# --- Environment and secrets ------------------------------------------------
+.env
+.env.*
+*.env
+# The placeholder template is intentionally tracked (must not be ignored).
+!.env.example
+secrets/
+*.secret
+*.secrets
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+.installed.cfg
+pip-wheel-metadata/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.uv/
+
+# Test / coverage / type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.tox/
+.nox/
+.hypothesis/
+
+# --- Node / frontend --------------------------------------------------------
+node_modules/
+.pnpm-store/
+.npm/
+.eslintcache
+.vite/
+apps/web/dist/
+apps/web/build/
+apps/web/coverage/
+*.tsbuildinfo
+
+# --- Docker / local infrastructure state ------------------------------------
+.docker/
+docker-compose.local.yml
+*.pid
+*.sock
+pgdata/
+redisdata/
+*.local
+
+# --- Market data: never commit provider or licensed data --------------------
+# (ADR 001) These categories must never enter version control.
+provider-dumps/
+provider_responses/
+*.provider.json
+market-data-dumps/
+licensed-data/
+downloaded-market-data/
+*.marketdata
+# Secret-bearing HTTP test cassettes (e.g. VCR) — recorded live responses.
+cassettes/
+**/cassettes/
+*.cassette
+*.cassette.yaml
+# API keys accidentally exported to disk.
+*.apikey
+api-keys/
+
+# --- Logs and temporary files -----------------------------------------------
+*.log
+logs/
+tmp/
+.cache/
+
+# --- OS / editor ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace

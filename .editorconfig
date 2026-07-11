@@ -1,0 +1,36 @@
+# EditorConfig — https://editorconfig.org
+# Consistent formatting across editors and languages for the Quantora repo.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Markdown: trailing whitespace can be a hard line break, so do not trim it.
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# Python
+[*.py]
+indent_size = 4
+
+# TypeScript / JavaScript / JSON / JSX / TSX
+[*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}]
+indent_size = 2
+
+# YAML
+[*.{yml,yaml}]
+indent_size = 2
+
+# Bicep (Azure infrastructure-as-code)
+[*.bicep]
+indent_size = 2
+
+# Makefiles require tabs
+[Makefile]
+indent_style = tab
