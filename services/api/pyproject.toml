@@ -1,0 +1,16 @@
+# ---------------------------------------------------------------------------
+# quantora-api — Django REST Framework service (the only public API).
+#
+# Non-packaged workspace member: it is a deployable application, not a
+# distributable library, so uv never builds it. Runtime dependencies are added
+# in a later phase.
+# ---------------------------------------------------------------------------
+
+[project]
+name = "quantora-api"
+version = "0.0.0"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[tool.uv]
+package = false

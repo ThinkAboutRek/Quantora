@@ -130,6 +130,66 @@ Consistent with the locked stack:
 
 ---
 
+## Toolchains and local commands
+
+Quantora is a polyglot workspace with pinned toolchains so every contributor
+and CI runner resolves the same versions.
+
+| Toolchain | Pinned version | Pin file |
+| --------- | -------------- | -------- |
+| Python    | 3.13           | `.python-version` |
+| uv        | `>=0.11.28,<0.12` | `[tool.uv] required-version` in `pyproject.toml` |
+| Node      | 24             | `.node-version` |
+| pnpm      | 11.11.0        | `packageManager` in `apps/web/package.json` |
+
+The Python side is a uv workspace rooted at the repository (a virtual,
+non-packaged root). `packages/contracts` is the one buildable package; the three
+`services/*` projects are non-packaged application members. The frontend lives
+in `apps/web` and is managed with pnpm.
+
+### First-time setup
+
+Use [Corepack][corepack] (bundled with Node 24) to provision the exact pnpm
+version — no global pnpm install required:
+
+```bash
+corepack enable
+corepack prepare pnpm@11.11.0 --activate   # only if Corepack is unavailable, install pnpm@11.11.0 manually
+```
+
+Install [uv][uv] (Astral) if it is not already present, then let it manage the
+Python interpreter and virtual environment.
+
+### Command reference
+
+Python (run from the repository root):
+
+```bash
+uv lock                                 # resolve/refresh uv.lock
+uv sync --all-packages --frozen         # install the workspace from the lockfile
+uv run python --version                 # 3.13.x
+uv run ruff check .                      # lint
+uv run ruff format --check .             # format check
+uv run mypy packages/contracts/src packages/contracts/tests
+uv run pytest packages/contracts/tests
+```
+
+Frontend (targeting `apps/web`):
+
+```bash
+pnpm install --dir apps/web                  # install + generate pnpm-lock.yaml
+pnpm install --dir apps/web --frozen-lockfile  # reproducible/CI install
+pnpm --dir apps/web run typecheck            # tsc --noEmit
+pnpm --dir apps/web run lint                  # eslint .
+pnpm --dir apps/web run format:check          # prettier --check .
+pnpm --dir apps/web run format                # prettier --write .
+```
+
+[uv]: https://docs.astral.sh/uv/
+[corepack]: https://nodejs.org/api/corepack.html
+
+---
+
 ## Documentation
 
 * [Documentation index](docs/README.md)

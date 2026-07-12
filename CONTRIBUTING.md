@@ -71,6 +71,44 @@ never mix alternatives:
 
 Pin runtime versions in Docker and CI. Lockfiles are committed.
 
+### Rules
+
+* **Exactly one lockfile per ecosystem.** One Python lockfile (`uv.lock` at the
+  repository root) and one Node lockfile (`apps/web/pnpm-lock.yaml`). Commit
+  both. There must be no `requirements.txt`, `package-lock.json`, or
+  `yarn.lock` anywhere in the tree.
+* **No alternative tools.** Never introduce `pip`, Poetry, or pipenv on the
+  Python side, or npm or Yarn on the Node side. Use `uv` and `pnpm` only.
+* **Frozen installs everywhere but intentional updates.** Local and CI installs
+  use `uv sync --frozen` / `--all-packages --frozen` and
+  `pnpm install --frozen-lockfile`. Change a lockfile only by running `uv lock`
+  or a plain `pnpm install`, and commit the result in the same change.
+* **Pinned toolchains.** Python 3.13 (`.python-version`), Node 24
+  (`.node-version`), pnpm 11.11.0 (`packageManager`), and uv `>=0.11.28,<0.12`
+  (`[tool.uv] required-version`). Provision pnpm with Corepack.
+
+### Verification commands
+
+Before committing toolchain or dependency changes, run and confirm each passes:
+
+```bash
+# Python (repository root)
+uv lock
+uv sync --all-packages --frozen
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy packages/contracts/src packages/contracts/tests
+uv run pytest packages/contracts/tests
+
+# Frontend (apps/web)
+pnpm install --dir apps/web --frozen-lockfile
+pnpm --dir apps/web run typecheck
+pnpm --dir apps/web run lint
+pnpm --dir apps/web run format:check
+```
+
+A repeated frozen install must not change either lockfile (`git status` clean).
+
 ---
 
 ## Charting

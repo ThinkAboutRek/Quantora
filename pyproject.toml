@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Quantora — Python workspace root (virtual, non-packaged)
+#
+# This file defines the uv workspace and the centralized tool configuration
+# shared by every Python member. The root itself is NOT a package: it has no
+# [project] table and is never built or published. Runtime dependencies belong
+# to the individual members under packages/* and services/*.
+# ---------------------------------------------------------------------------
+
+[tool.uv.workspace]
+members = ["packages/*", "services/*"]
+
+[tool.uv]
+required-version = ">=0.11.28,<0.12"
+package = false
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "pytest>=8.3.0",
+]
+
+# --- Ruff (lint + format) ---------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["packages/contracts/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["quantora_contracts"]
+
+# --- Mypy (strict static typing) --------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+strict = true
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = "packages/contracts/src"
+
+# --- Pytest -----------------------------------------------------------------
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --import-mode=importlib"
+testpaths = ["packages/contracts/tests"]

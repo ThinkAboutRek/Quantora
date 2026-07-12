@@ -1,0 +1,21 @@
+# ---------------------------------------------------------------------------
+# quantora-contracts — the one real, buildable Python package in the workspace.
+#
+# It holds shared contract types used across the Quantora services. It is built
+# with the uv build backend so it can be installed into the workspace
+# environment and imported by tests and (later) the services.
+# ---------------------------------------------------------------------------
+
+[project]
+name = "quantora-contracts"
+version = "0.0.0"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "quantora_contracts"
+module-root = "src"

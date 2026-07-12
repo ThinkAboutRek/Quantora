@@ -96,6 +96,14 @@ logs/
 tmp/
 .cache/
 
+# --- Lockfiles and version pins: always tracked -----------------------------
+# These are intentionally committed for reproducible installs and must never
+# be ignored (guards against a future broad ignore rule).
+!uv.lock
+!pnpm-lock.yaml
+!.python-version
+!.node-version
+
 # --- OS / editor ------------------------------------------------------------
 .DS_Store
 Thumbs.db

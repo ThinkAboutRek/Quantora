@@ -1,0 +1,17 @@
+# ---------------------------------------------------------------------------
+# quantora-risk-engine — private FastAPI service owning deterministic,
+# versioned financial calculations.
+#
+# Non-packaged workspace member: a deployable application, not a distributable
+# library, so uv never builds it. Runtime dependencies are added in a later
+# phase.
+# ---------------------------------------------------------------------------
+
+[project]
+name = "quantora-risk-engine"
+version = "0.0.0"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[tool.uv]
+package = false
