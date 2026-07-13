@@ -39,6 +39,9 @@ env/
 ENV/
 .uv/
 
+# Local Django SQLite database (development only; never committed)
+*.sqlite3
+
 # Test / coverage / type-check caches
 .pytest_cache/
 .mypy_cache/

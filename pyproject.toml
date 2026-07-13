@@ -19,19 +19,26 @@ dev = [
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "pytest>=8.3.0",
+    "pytest-django",
+    "django-stubs[compatible-mypy]>=6.0.6,<6.1",
+    "djangorestframework-stubs>=3.17,<3.18",
 ]
 
 # --- Ruff (lint + format) ---------------------------------------------------
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["packages/contracts/src"]
+src = ["packages/contracts/src", "services/api/src"]
+# Django auto-generates migration files that do not conform to our lint/format
+# rules (long help_text lines, single quotes). They are generated code, not
+# hand-authored, so they are excluded from both linting and formatting.
+extend-exclude = ["**/migrations/**"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["quantora_contracts"]
+known-first-party = ["quantora_contracts", "accounts", "core", "quantora"]
 
 # --- Mypy (strict static typing) --------------------------------------------
 [tool.mypy]
@@ -39,9 +46,18 @@ python_version = "3.13"
 strict = true
 explicit_package_bases = true
 namespace_packages = true
-mypy_path = "packages/contracts/src"
+mypy_path = ["packages/contracts/src", "services/api/src"]
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[tool.django-stubs]
+# development settings import without production secrets, so they are safe for
+# static analysis to load.
+django_settings_module = "core.settings.development"
 
 # --- Pytest -----------------------------------------------------------------
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers --import-mode=importlib"
-testpaths = ["packages/contracts/tests"]
+testpaths = ["packages/contracts/tests", "services/api/tests"]
+pythonpath = ["services/api/src"]
+DJANGO_SETTINGS_MODULE = "core.settings.test"
+django_find_project = false
