@@ -95,10 +95,10 @@ Before committing toolchain or dependency changes, run and confirm each passes:
 # Python (repository root)
 uv lock
 uv sync --all-packages --frozen
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy packages/contracts/src packages/contracts/tests
-uv run pytest packages/contracts/tests
+uv run --frozen ruff check .
+uv run --frozen ruff format --check .
+uv run --frozen mypy packages/contracts/src packages/contracts/tests services/api/src services/api/tests
+uv run --frozen pytest packages/contracts/tests services/api/tests
 
 # Frontend (apps/web)
 pnpm install --dir apps/web --frozen-lockfile
