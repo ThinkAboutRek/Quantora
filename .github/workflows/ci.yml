@@ -1,0 +1,88 @@
+name: CI
+
+# Run on every pull request, and on pushes to main only.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: the whole workflow only needs to read the repository.
+permissions:
+  contents: read
+
+# One in-flight run per ref; newer pushes cancel superseded runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up uv
+        # No version pins here: setup-uv reads the uv version from
+        # pyproject.toml ([tool.uv] required-version) and the Python version
+        # from .python-version.
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install workspace (frozen)
+        run: uv sync --all-packages --frozen
+
+      - name: Lint (ruff)
+        run: uv run --frozen ruff check .
+
+      - name: Format check (ruff)
+        run: uv run --frozen ruff format --check .
+
+      - name: Type-check (mypy)
+        run: uv run --frozen mypy packages/contracts/src packages/contracts/tests services/api/src services/api/tests
+
+      - name: Test (pytest)
+        run: uv run --frozen pytest packages/contracts/tests services/api/tests
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # pnpm must be installed before setup-node so the Node pnpm cache works.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          package_json_file: apps/web/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
