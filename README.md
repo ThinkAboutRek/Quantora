@@ -168,25 +168,40 @@ Python (run from the repository root):
 uv lock                                 # resolve/refresh uv.lock
 uv sync --all-packages --frozen         # install the workspace from the lockfile
 uv run python --version                 # 3.13.x
-uv run ruff check .                      # lint
-uv run ruff format --check .             # format check
-uv run mypy packages/contracts/src packages/contracts/tests
-uv run pytest packages/contracts/tests
+uv run --frozen ruff check .            # lint
+uv run --frozen ruff format --check .   # format check
+uv run --frozen mypy packages/contracts/src packages/contracts/tests services/api/src services/api/tests
+uv run --frozen pytest packages/contracts/tests services/api/tests
 ```
 
-Frontend (targeting `apps/web`):
+Frontend (run from `apps/web`):
 
 ```bash
-pnpm install --dir apps/web                  # install + generate pnpm-lock.yaml
-pnpm install --dir apps/web --frozen-lockfile  # reproducible/CI install
-pnpm --dir apps/web run typecheck            # tsc --noEmit
-pnpm --dir apps/web run lint                  # eslint .
-pnpm --dir apps/web run format:check          # prettier --check .
-pnpm --dir apps/web run format                # prettier --write .
+pnpm install --frozen-lockfile   # reproducible/CI install
+pnpm dev                         # start the Vite dev server
+pnpm build                       # type-check, then production build
+pnpm test                        # run the unit tests once
+pnpm typecheck                   # tsc -b
+pnpm lint                        # eslint .
+pnpm format:check                # prettier --check .
 ```
+
+The frontend reads configuration from `VITE_*` environment variables.
+`apps/web/.env.example` documents the one used today, `VITE_API_BASE_URL`
+(default `/api/v1`). Vite loads `.env` files from the frontend project root
+(`apps/web/`), not the repository root, so a frontend variable placed in the
+root `.env` is silently ignored; the root `.env.example` stays backend-only.
+Only `VITE_`-prefixed variables are exposed to the browser bundle.
 
 [uv]: https://docs.astral.sh/uv/
 [corepack]: https://nodejs.org/api/corepack.html
+
+### Continuous integration
+
+Continuous integration runs on every pull request and on pushes to `main`, as
+two parallel jobs — one for Python and one for the frontend — each installing
+from a frozen lockfile (`uv sync --all-packages --frozen` and
+`pnpm install --frozen-lockfile`). A failing check blocks the merge.
 
 ---
 
