@@ -1,0 +1,10 @@
+# Build context excludes for the frontend image (build context = ./apps/web).
+# The Dockerfile copies only package.json + pnpm-lock.yaml; node_modules is
+# built inside the image.
+
+node_modules
+dist
+coverage
+.env*
+.vite
+*.log

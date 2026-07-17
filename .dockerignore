@@ -1,0 +1,50 @@
+# Build context excludes for the django-api image (build context = repo root).
+# The Dockerfile copies only specific manifests + packages/contracts, so this is
+# mainly a safety net that also keeps the context small and free of secrets.
+
+# --- Version control / CI ---------------------------------------------------
+.git
+.gitignore
+.github
+
+# --- Python: virtualenv, bytecode, tool caches ------------------------------
+.venv
+**/__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Node / frontend build artefacts ----------------------------------------
+**/node_modules/
+**/dist/
+**/coverage/
+.vite/
+
+# --- Environment and secrets ------------------------------------------------
+.env
+.env.*
+!.env.example
+secrets/
+
+# --- Local databases --------------------------------------------------------
+*.sqlite3
+
+# --- Docker / tooling / editors ---------------------------------------------
+.claude/
+.vscode/
+.idea/
+docker-compose*.yml
+**/Dockerfile
+.dockerignore
+
+# --- Logs and temporary files -----------------------------------------------
+*.log
+logs/
+tmp/
+.DS_Store
+Thumbs.db
