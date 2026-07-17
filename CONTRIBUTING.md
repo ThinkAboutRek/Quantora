@@ -111,6 +111,18 @@ A repeated frozen install must not change either lockfile (`git status` clean).
 
 ---
 
+## Local development environment
+
+The full stack — the Django API, the React frontend, PostgreSQL, and Redis —
+runs locally under Docker Compose, and only Docker Desktop is required on the
+host. See
+[Local development with Docker Compose](docs/operations/local-development.md) for
+the complete workflow, including why database migrations are run explicitly
+rather than on container startup, how hot reload works for both services, and how
+to inspect or reset local data.
+
+---
+
 ## Charting
 
 **Apache ECharts (the official `echarts` package) is the only general-purpose

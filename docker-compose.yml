@@ -1,0 +1,74 @@
+# ============================================================================
+# Quantora — local development stack (topology; environment-agnostic).
+#
+# This file describes WHAT runs and how the services relate. Development-only
+# wiring (published ports, source bind mounts, run commands, .env) lives in
+# docker-compose.override.yml, which `docker compose` merges automatically.
+#
+# No top-level `version:` key, no custom networks (the default network is used),
+# and no container_name on any service.
+# ============================================================================
+
+services:
+  frontend:
+    build:
+      context: ./apps/web
+      # Relative to the build context above.
+      dockerfile: Dockerfile
+      target: development
+
+  django-api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+      target: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Liveness only. The health view (core/api/health.py) deliberately performs
+    # no database or cache access, so this proves the process is up — not that
+    # PostgreSQL is reachable. No DB-backed readiness endpoint is added in this
+    # phase. Uses the Python standard library (urllib), so no extra tooling is
+    # baked into the image.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/', timeout=3).status == 200 else 1)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres:
+    image: postgres:17.10-alpine3.24
+    environment:
+      # Interpolated by Compose from the developer's .env at `up` time.
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # The doubled `$$` is escaped so Compose passes a literal ${POSTGRES_USER} /
+    # ${POSTGRES_DB} into the container shell, evaluated there at runtime against
+    # the container's own environment (set above) — not interpolated early by
+    # Compose.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:8.8.0-alpine3.23
+    # Ephemeral coordination/cache only — deliberately no volume.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:

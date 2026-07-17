@@ -196,6 +196,22 @@ Only `VITE_`-prefixed variables are exposed to the browser bundle.
 [uv]: https://docs.astral.sh/uv/
 [corepack]: https://nodejs.org/api/corepack.html
 
+### Full stack with Docker Compose
+
+For end-to-end local development the API, frontend, PostgreSQL, and Redis run
+together under Docker Compose. Only Docker Desktop is required on the host:
+
+```powershell
+Copy-Item .env.example .env   # first time only, then set POSTGRES_PASSWORD
+docker compose up -d          # build/pull as needed and start all four services
+```
+
+The API is then on <http://localhost:8000> and the frontend on
+<http://localhost:5173>. See
+[Local development with Docker Compose](docs/operations/local-development.md) for
+the full workflow — running migrations, inspecting PostgreSQL and Redis, hot
+reload, logs and health, data persistence, and resets.
+
 ### Continuous integration
 
 Continuous integration runs on every pull request and on pushes to `main`, as

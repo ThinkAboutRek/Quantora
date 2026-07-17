@@ -1,0 +1,52 @@
+# ============================================================================
+# Quantora — local development overrides.
+#
+# Compose merges this on top of docker-compose.yml automatically for the
+# documented `docker compose up` (no -f flags required). It carries the
+# development-only wiring: local .env, published host ports, source bind mounts,
+# and the run commands (kept out of the images so the base images stay
+# environment-agnostic).
+# ============================================================================
+
+services:
+  django-api:
+    # Load the developer's local configuration/secrets into the container. The
+    # explicit `environment` block below overrides matching keys from this file.
+    env_file: .env
+    environment:
+      # In Compose the API reaches PostgreSQL by service name, overriding the
+      # host-native POSTGRES_HOST default carried in .env.
+      POSTGRES_HOST: postgres
+      # The Vite dev proxy uses changeOrigin, which rewrites the forwarded Host
+      # header to this service name, so Django must accept it. Dev-only; the
+      # host-native .env keeps its localhost/127.0.0.1 default.
+      DJANGO_ALLOWED_HOSTS: "django-api,localhost,127.0.0.1"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Overlay ONLY the Django source at the same path used during the build.
+      # The baked /workspace/.venv, root pyproject.toml, uv.lock, and
+      # packages/contracts are outside this path and stay untouched.
+      - ./services/api:/workspace/services/api
+    # Serve through the workspace-managed environment (matching how Phases 2/3
+    # invoke Python), bound to all interfaces so the published port reaches it.
+    # Migrations are run explicitly, not on startup (see docs).
+    command: uv run --frozen python services/api/manage.py runserver 0.0.0.0:8000
+
+  frontend:
+    environment:
+      # Read only by vite.config.ts (Node context) to target the API service;
+      # never exposed to the browser bundle.
+      API_PROXY_TARGET: "http://django-api:8000"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web:/app
+      # A named volume keeps the container-built node_modules from being shadowed
+      # by the (absent, gitignored) host node_modules under the ./apps/web mount.
+      - web_node_modules:/app/node_modules
+    # Run the existing dev script, binding all interfaces inside the container.
+    command: pnpm run dev --host 0.0.0.0
+
+volumes:
+  web_node_modules:

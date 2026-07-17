@@ -37,6 +37,11 @@ non-goals from these documents without reading source code. Start with the
 * [Glossary](glossary.md) — financial and architectural terms used throughout
   the documentation.
 
+### Operations
+
+* [Local development with Docker Compose](operations/local-development.md) —
+  running the full four-service stack (API, frontend, PostgreSQL, Redis) locally.
+
 ---
 
 ## Planned (future phases)
@@ -53,7 +58,7 @@ intentionally **not** linked here:
 * **Security** — the full threat model and security hardening notes.
 * **Testing** — the testing strategy, coverage targets, and failure-injection
   suite.
-* **Operations** — local development, container, deployment, observability, and
-  release documentation.
+* **Operations** — container, deployment, observability, and release
+  documentation. (Local development is published above.)
 
 This index will be updated to link each area as it is published.
