@@ -7,11 +7,13 @@ missing or a value cannot be parsed.
 """
 
 import os
+from urllib.parse import urlsplit
 
 from django.core.exceptions import ImproperlyConfigured
 
 _TRUE_VALUES = frozenset({"true", "1", "yes", "on"})
 _FALSE_VALUES = frozenset({"false", "0", "no", "off"})
+_SAMESITE_VALUES = ("Lax", "Strict", "None")
 
 
 def require_str(name: str) -> str:
@@ -66,3 +68,45 @@ def require_list(name: str) -> list[str]:
             f"Required environment variable {name!r} must contain at least one value."
         )
     return items
+
+
+def get_origin_list(name: str, default: list[str]) -> list[str]:
+    """Return ``name`` as a comma-separated list of validated web origins.
+
+    Each item must be a bare ``scheme://host[:port]`` origin (``http`` or
+    ``https``) with no path, query, or fragment — the exact shape Django and
+    ``django-cors-headers`` expect for ``CSRF_TRUSTED_ORIGINS`` and
+    ``CORS_ALLOWED_ORIGINS``. An unset or empty variable yields ``default``.
+    """
+    origins = get_list(name, default)
+    for origin in origins:
+        parts = urlsplit(origin)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise ImproperlyConfigured(
+                f"Environment variable {name!r} contains an invalid origin {origin!r}; "
+                "each origin must look like 'https://example.com' (scheme and host)."
+            )
+        if parts.path or parts.query or parts.fragment:
+            raise ImproperlyConfigured(
+                f"Environment variable {name!r} origin {origin!r} must not include a "
+                "path, query, or fragment."
+            )
+    return origins
+
+
+def get_samesite(name: str, default: str) -> str:
+    """Return ``name`` as a validated cookie ``SameSite`` value.
+
+    Only ``Lax``, ``Strict``, and ``None`` are accepted (case-sensitive, as
+    Django compares these literally). An unset or empty variable yields
+    ``default``.
+    """
+    value = os.environ.get(name)
+    if not value:
+        return default
+    candidate = value.strip()
+    if candidate not in _SAMESITE_VALUES:
+        raise ImproperlyConfigured(
+            f"Environment variable {name!r} must be one of {_SAMESITE_VALUES}, got {value!r}."
+        )
+    return candidate

@@ -34,10 +34,11 @@ def test_create_superuser_rejects_non_staff() -> None:
 
 
 def test_email_is_normalized() -> None:
-    # normalize_email lowercases the domain but leaves the local part untouched.
-    user = User.objects.create_user(email="Trader@Example.COM", password="pw-12345678")
+    # Phase 6 canonicalization strips surrounding whitespace and lowercases the
+    # *entire* address (local part included), not just the domain.
+    user = User.objects.create_user(email="  Trader@Example.COM  ", password="pw-12345678")
 
-    assert user.email == "Trader@example.com"
+    assert user.email == "trader@example.com"
 
 
 def test_blank_email_rejected() -> None:

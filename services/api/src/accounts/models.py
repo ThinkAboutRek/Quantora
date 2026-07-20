@@ -19,10 +19,30 @@ class UserManager(DjangoUserManager["User"]):
 
     use_in_migrations = True
 
+    @staticmethod
+    def canonicalize_email(email: str | None) -> str:
+        """Return the canonical login form of ``email``.
+
+        Surrounding whitespace is stripped and the *entire* address — local
+        part included, not just the domain that Django's ``normalize_email``
+        lowercases — is folded to lower case. Applying this on every write path
+        and on the login lookup makes the identifier case-insensitive: addresses
+        that differ only in case or padding collapse to one stored value, so the
+        existing ``unique`` constraint on ``email`` enforces case-insensitive
+        uniqueness with no schema change.
+        """
+        return (email or "").strip().lower()
+
+    def get_by_natural_key(self, username: str | None) -> User:
+        # Django's authentication framework looks users up by their natural key
+        # (the email). Canonicalizing here makes the login lookup match the
+        # canonical form persisted by ``_create_user``.
+        return super().get_by_natural_key(self.canonicalize_email(username))
+
     def _create_user(self, email: str, password: str | None, **extra_fields: Any) -> User:
+        email = self.canonicalize_email(email)
         if not email:
             raise ValueError("Users must have an email address.")
-        email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
