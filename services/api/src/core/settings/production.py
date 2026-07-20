@@ -13,6 +13,7 @@ deploy against these settings as-is.
 
 from core import env
 from core.settings.base import *  # noqa: F403
+from core.settings.base import SESSION_COOKIE_SAMESITE, enforce_samesite_secure_invariant
 
 DEBUG = False
 
@@ -24,3 +25,13 @@ ALLOWED_HOSTS = env.require_list("DJANGO_ALLOWED_HOSTS")
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# With Secure cookies mandatory in production, ``SameSite=None`` (for a
+# cross-site frontend) is permissible; the invariant confirms the pairing.
+# Trusted CSRF origins, allowed CORS origins, and the SameSite policy all come
+# from the environment here — no domains are hard-coded in this module.
+enforce_samesite_secure_invariant(
+    SESSION_COOKIE_SAMESITE,
+    session_secure=SESSION_COOKIE_SECURE,
+    csrf_secure=CSRF_COOKIE_SECURE,
+)

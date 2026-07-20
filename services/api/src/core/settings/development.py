@@ -9,9 +9,36 @@ import os
 
 from core import env
 from core.settings.base import *  # noqa: F403
-from core.settings.base import REST_FRAMEWORK
+from core.settings.base import (
+    CSRF_TRUSTED_ORIGINS,
+    REST_FRAMEWORK,
+    SESSION_COOKIE_SAMESITE,
+    enforce_samesite_secure_invariant,
+)
 
 DEBUG = True
+
+# --- Cookies ----------------------------------------------------------------
+# Local development is plain HTTP, so the transport-security cookie flags are
+# off. The SameSite invariant is re-checked against these final values.
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+enforce_samesite_secure_invariant(
+    SESSION_COOKIE_SAMESITE,
+    session_secure=SESSION_COOKIE_SECURE,
+    csrf_secure=CSRF_COOKIE_SECURE,
+)
+
+# --- CSRF & CORS ------------------------------------------------------------
+# The Vite dev server's origins are trusted for CSRF here (not via ``.env``):
+# they are fixed, non-secret, development-only values. ``CORS_ALLOWED_ORIGINS``
+# stays empty because local requests reach the API through the Vite proxy and
+# are therefore same-origin.
+CSRF_TRUSTED_ORIGINS = [
+    *CSRF_TRUSTED_ORIGINS,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 # --- Database ---------------------------------------------------------------
 # Local development runs against PostgreSQL — the Docker Compose ``postgres``
