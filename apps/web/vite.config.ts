@@ -22,6 +22,13 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'jsdom',
+    // Pin the jsdom document origin so `window.location.origin` is a stable,
+    // absolute base. The API URL builder resolves root-relative bases against
+    // this origin, and the MSW handlers register absolute URLs that must match
+    // it exactly (unhandled requests are treated as errors).
+    environmentOptions: {
+      jsdom: { url: 'http://localhost:5173/' },
+    },
     setupFiles: ['./src/test/setup.ts'],
     css: false,
   },

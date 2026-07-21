@@ -21,7 +21,7 @@ WORKDIR /app
 # cached across source-only changes. The app source is bind-mounted at runtime,
 # and a named volume preserves this container-built node_modules
 # (docker-compose.override.yml).
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS development
