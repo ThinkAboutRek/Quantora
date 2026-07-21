@@ -85,6 +85,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setRestoreTick((tick) => tick + 1);
   }, []);
 
+  const handleSessionExpired = useCallback(() => {
+    // The server rejected the session while the user was working (a 401 on a
+    // product request). Drop the stale in-memory token and go anonymous, but do
+    // NOT call logout — there is no live session to end. ProtectedRoute sees the
+    // anonymous status and redirects to /login, carrying the intended location.
+    clearCsrfToken();
+    setUser(null);
+    setStatus('anonymous');
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const authedUser = await apiLogin(email, password);
     setUser(authedUser);
@@ -119,8 +129,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, status, login, register, logout, retrySessionRestore }),
-    [user, status, login, register, logout, retrySessionRestore],
+    () => ({
+      user,
+      status,
+      login,
+      register,
+      logout,
+      retrySessionRestore,
+      handleSessionExpired,
+    }),
+    [user, status, login, register, logout, retrySessionRestore, handleSessionExpired],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

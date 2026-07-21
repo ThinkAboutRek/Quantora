@@ -4,7 +4,7 @@ import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
 import { PublicOnlyRoute } from '../features/auth/components/PublicOnlyRoute';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
-import { AppHomePage } from '../pages/AppHomePage';
+import { PortfoliosPage } from '../features/portfolios/pages/PortfoliosPage';
 import { LandingPage } from '../pages/LandingPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
@@ -24,7 +24,7 @@ export function AppRoutes() {
           <Route path="register" element={<RegisterPage />} />
         </Route>
         <Route element={<ProtectedRoute />}>
-          <Route path="app" element={<AppHomePage />} />
+          <Route path="app" element={<PortfoliosPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>

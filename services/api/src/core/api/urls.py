@@ -7,4 +7,5 @@ from core.api.health import HealthView
 urlpatterns = [
     path("health/", HealthView.as_view(), name="health"),
     path("auth/", include("accounts.api.urls")),
+    path("", include("portfolios.api.urls")),
 ]

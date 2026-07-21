@@ -30,4 +30,11 @@ export interface AuthContextValue {
   readonly logout: () => Promise<void>;
   /** Re-run the concurrent startup probe (me + csrf), clearing the error. */
   readonly retrySessionRestore: () => void;
+  /**
+   * Transition to anonymous after the server rejected the session mid-use (a 401
+   * on a product request). Clears the user and the in-memory CSRF token without
+   * calling the logout endpoint; `ProtectedRoute` then redirects to /login,
+   * preserving the intended destination via its existing router-state mechanism.
+   */
+  readonly handleSessionExpired: () => void;
 }
