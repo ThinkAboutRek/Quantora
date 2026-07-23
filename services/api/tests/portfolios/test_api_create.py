@@ -19,7 +19,7 @@ from portfolios.models import Portfolio
 pytestmark = pytest.mark.django_db
 
 URL = "/api/v1/portfolios/"
-EXPECTED_KEYS = {"id", "name", "base_currency", "created_at", "updated_at"}
+EXPECTED_KEYS = {"id", "name", "base_currency", "is_archived", "created_at", "updated_at"}
 
 
 def test_create_returns_201_with_exact_fields(auth_client: APIClient, user: User) -> None:
@@ -112,3 +112,14 @@ def test_client_cannot_set_base_currency(auth_client: APIClient) -> None:
     assert response.json()["base_currency"] == "USD"
     portfolio = Portfolio.objects.get(pk=response.json()["id"])
     assert portfolio.base_currency == "USD"
+
+
+def test_client_cannot_create_pre_archived(auth_client: APIClient) -> None:
+    # ``is_archived`` is read-only: archival happens only through the explicit
+    # archive action, so a value in the create payload is discarded.
+    response = auth_client.post(URL, {"name": "Sneaky", "is_archived": True}, format="json")
+
+    assert response.status_code == 201
+    assert response.json()["is_archived"] is False
+    portfolio = Portfolio.objects.get(pk=response.json()["id"])
+    assert portfolio.is_archived is False

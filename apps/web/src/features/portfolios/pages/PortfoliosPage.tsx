@@ -4,16 +4,19 @@ import { useAuth } from '../../auth/useAuth';
 import { listPortfolios } from '../api';
 import { CreatePortfolioForm } from '../components/CreatePortfolioForm';
 import { PortfolioList } from '../components/PortfolioList';
-import type { Portfolio } from '../types';
+import type { Portfolio, PortfolioListFilter } from '../types';
 import '../portfolios.css';
 
 // The page owns all portfolio state through a small reducer with distinct,
-// observable states: `loading` (initial fetch in flight), `error` (a retryable
-// list failure), and `ready` — which splits at render into the empty state and
-// the loaded-with-portfolios state by the length of the authoritative array. The
-// create sub-states (pending, validation error) live in the form the page
-// composes. A 401 never lands here as "empty"; it triggers the session-expiry
-// transition instead.
+// observable states per selection: `loading` (fetch in flight), `error` (a
+// retryable list failure), and `ready` — which splits at render into the empty
+// state and the loaded state by the length of the authoritative array. The
+// Active/Archived selection is page-local: exactly one list is fetched at a
+// time (the plain call for active, `?archived=true` for archived) and never
+// both. The create sub-states (pending, validation error) live in the form the
+// page composes, which is only offered on the active view because a new
+// portfolio is always active. A 401 never lands here as "empty"; it triggers
+// the session-expiry transition instead.
 type ListState =
   | { readonly status: 'loading' }
   | { readonly status: 'error' }
@@ -45,6 +48,7 @@ function reducer(state: ListState, action: ListAction): ListState {
 
 export function PortfoliosPage() {
   const { handleSessionExpired } = useAuth();
+  const [filter, setFilter] = useState<PortfolioListFilter>('active');
   const [state, dispatch] = useReducer(reducer, { status: 'loading' });
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -54,7 +58,12 @@ export function PortfoliosPage() {
 
     void (async () => {
       try {
-        const portfolios = await listPortfolios(controller.signal);
+        // Active uses the plain list call (the server default); archived asks
+        // for exactly the archived list. Never both.
+        const portfolios = await listPortfolios(
+          filter === 'archived' ? 'archived' : undefined,
+          controller.signal,
+        );
         // A stale run (superseded by cleanup, e.g. StrictMode's second pass) or
         // an aborted signal must never write state.
         if (!active || controller.signal.aborted) {
@@ -80,7 +89,7 @@ export function PortfoliosPage() {
       active = false;
       controller.abort();
     };
-  }, [reloadTick, handleSessionExpired]);
+  }, [filter, reloadTick, handleSessionExpired]);
 
   const retry = useCallback(() => {
     // Reset to loading in the handler (not the effect body) so the effect never
@@ -89,9 +98,22 @@ export function PortfoliosPage() {
     setReloadTick((tick) => tick + 1);
   }, []);
 
+  const selectFilter = useCallback(
+    (next: PortfolioListFilter) => {
+      if (next === filter) {
+        return;
+      }
+      dispatch({ type: 'loading' });
+      setFilter(next);
+    },
+    [filter],
+  );
+
   const handleCreated = useCallback((portfolio: Portfolio) => {
     dispatch({ type: 'prepend', portfolio });
   }, []);
+
+  const showingArchived = filter === 'archived';
 
   return (
     <section className="portfolios" aria-labelledby="portfolios-heading">
@@ -99,9 +121,28 @@ export function PortfoliosPage() {
         Portfolios
       </h1>
 
+      <div className="portfolios__filter" role="group" aria-label="Portfolio state">
+        <button
+          type="button"
+          className="portfolios__filter-option"
+          aria-pressed={!showingArchived}
+          onClick={() => selectFilter('active')}
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          className="portfolios__filter-option"
+          aria-pressed={showingArchived}
+          onClick={() => selectFilter('archived')}
+        >
+          Archived
+        </button>
+      </div>
+
       {state.status === 'loading' && (
         <p className="portfolios__status" role="status" aria-busy="true">
-          Loading your portfolios…
+          {showingArchived ? 'Loading your archived portfolios…' : 'Loading your portfolios…'}
         </p>
       )}
 
@@ -116,10 +157,17 @@ export function PortfoliosPage() {
 
       {state.status === 'ready' && (
         <>
-          <CreatePortfolioForm onCreated={handleCreated} onSessionExpired={handleSessionExpired} />
+          {!showingArchived && (
+            <CreatePortfolioForm
+              onCreated={handleCreated}
+              onSessionExpired={handleSessionExpired}
+            />
+          )}
           {state.portfolios.length === 0 ? (
             <p className="portfolios__empty">
-              You don’t have any portfolios yet. Create one above to get started.
+              {showingArchived
+                ? 'You don’t have any archived portfolios.'
+                : 'You don’t have any portfolios yet. Create one above to get started.'}
             </p>
           ) : (
             <PortfolioList portfolios={state.portfolios} />

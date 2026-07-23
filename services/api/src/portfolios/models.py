@@ -1,9 +1,10 @@
 """The portfolio model: a named, owner-scoped container of holdings.
 
-Phase 8 introduces only the container itself. A portfolio belongs to exactly one
+Phase 8 introduced only the container itself: a portfolio belongs to exactly one
 user, carries a display name that is unique per owner (case-insensitively), and
-is fixed to a USD base currency for now. Holdings, transactions, benchmarks, and
-archival are deliberately out of scope here.
+is fixed to a USD base currency for now. Phase 9 adds a single reversible
+archive flag; permanent deletion is only permitted from the archived state.
+Holdings, transactions, and benchmarks remain deliberately out of scope here.
 """
 
 from django.conf import settings
@@ -20,6 +21,7 @@ class Portfolio(models.Model):
     )
     name = models.CharField(max_length=120)
     base_currency = models.CharField(max_length=3, default="USD")
+    is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

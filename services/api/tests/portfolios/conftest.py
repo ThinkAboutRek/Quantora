@@ -15,6 +15,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from portfolios.models import Portfolio
 
 # A password that clears every configured validator, matching the accounts suite.
 PASSWORD = "sturdy-passphrase-42"
@@ -59,6 +60,31 @@ def auth_client(client: APIClient, user: User) -> APIClient:
     """
     client.force_authenticate(user=user)
     return client
+
+
+@pytest.fixture
+def other_auth_client(other_user: User) -> APIClient:
+    """A second client authenticated as ``other_user``.
+
+    Used to prove that detail lookups and every mutation are owner-scoped: this
+    client must receive the concealed 404 for ``user``'s portfolios, and never
+    alter them.
+    """
+    api_client = APIClient()
+    api_client.force_authenticate(user=other_user)
+    return api_client
+
+
+@pytest.fixture
+def portfolio(user: User) -> Portfolio:
+    """An active portfolio owned by ``user``."""
+    return Portfolio.objects.create(owner=user, name="Growth")
+
+
+@pytest.fixture
+def archived_portfolio(user: User) -> Portfolio:
+    """An archived portfolio owned by ``user``."""
+    return Portfolio.objects.create(owner=user, name="Retired", is_archived=True)
 
 
 @pytest.fixture

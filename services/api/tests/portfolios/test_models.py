@@ -40,6 +40,13 @@ def test_base_currency_defaults_to_usd(user: User) -> None:
     assert portfolio.base_currency == "USD"
 
 
+def test_is_archived_defaults_to_false(user: User) -> None:
+    portfolio = Portfolio.objects.create(owner=user, name="Fresh")
+
+    portfolio.refresh_from_db()
+    assert portfolio.is_archived is False
+
+
 def test_timestamps_are_populated(user: User) -> None:
     portfolio = Portfolio.objects.create(owner=user, name="Timestamped")
 
@@ -64,6 +71,15 @@ def test_base_currency_check_rejects_non_usd(user: User) -> None:
 
 def test_case_insensitive_duplicate_rejected_for_one_owner(user: User) -> None:
     Portfolio.objects.create(owner=user, name="Growth")
+
+    with transaction.atomic(), pytest.raises(IntegrityError):
+        Portfolio.objects.create(owner=user, name="growth")
+
+
+def test_archived_rows_still_count_toward_uniqueness(user: User) -> None:
+    # Archival does not release the name: the functional unique constraint spans
+    # every state, so an archived "Growth" still blocks a new "growth".
+    Portfolio.objects.create(owner=user, name="Growth", is_archived=True)
 
     with transaction.atomic(), pytest.raises(IntegrityError):
         Portfolio.objects.create(owner=user, name="growth")
