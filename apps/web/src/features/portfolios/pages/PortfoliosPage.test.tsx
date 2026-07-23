@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../../auth/AuthContext';
 import type { AuthContextValue, AuthUser } from '../../auth/types';
@@ -13,18 +14,31 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const USER: AuthUser = { id: 1, email: 'user@example.com' };
 
-function makePortfolio(id: number, name: string): Portfolio {
+function makePortfolio(id: number, name: string, isArchived = false): Portfolio {
   return {
     id,
     name,
     base_currency: 'USD',
+    is_archived: isArchived,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
   };
 }
 
+/** Register a list handler that serves distinct active and archived arrays,
+ *  proving the page requests exactly one state at a time. */
+function serveLists(active: Portfolio[], archived: Portfolio[]) {
+  server.use(
+    http.get(PORTFOLIOS_URL, ({ request }) => {
+      const filter = new URL(request.url).searchParams.get('archived');
+      return HttpResponse.json(filter === 'true' ? archived : active);
+    }),
+  );
+}
+
 /** Render the page behind a mock auth context so no real session probe fires and
- *  the session-expiry handler is observable. */
+ *  the session-expiry handler is observable. A router is required because list
+ *  items link to their detail routes. */
 function renderPage(overrides: Partial<AuthContextValue> = {}) {
   const value: AuthContextValue = {
     user: USER,
@@ -38,7 +52,9 @@ function renderPage(overrides: Partial<AuthContextValue> = {}) {
   };
   return render(
     <AuthContext.Provider value={value}>
-      <PortfoliosPage />
+      <MemoryRouter initialEntries={['/portfolios']}>
+        <PortfoliosPage />
+      </MemoryRouter>
     </AuthContext.Provider>,
   );
 }
@@ -86,6 +102,85 @@ describe('PortfoliosPage', () => {
     const items = screen.getAllByRole('listitem').map((node) => node.textContent);
     expect(items[0]).toContain('Third');
     expect(items[1]).toContain('First');
+  });
+
+  it('links every portfolio to its detail route', async () => {
+    server.use(http.get(PORTFOLIOS_URL, () => HttpResponse.json([makePortfolio(7, 'Growth')])));
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: /Growth/ });
+    expect(link).toHaveAttribute('href', '/portfolios/7');
+  });
+
+  it('defaults to the active list without requesting the archived one', async () => {
+    let archivedRequests = 0;
+    server.use(
+      http.get(PORTFOLIOS_URL, ({ request }) => {
+        if (new URL(request.url).searchParams.get('archived') === 'true') {
+          archivedRequests += 1;
+          return HttpResponse.json([]);
+        }
+        return HttpResponse.json([makePortfolio(1, 'Active one')]);
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Active one')).toBeInTheDocument();
+    expect(archivedRequests).toBe(0);
+    expect(screen.getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Archived' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('fetches and shows the archived list when Archived is selected', async () => {
+    serveLists([makePortfolio(1, 'Active one')], [makePortfolio(2, 'Old one', true)]);
+    renderPage();
+    expect(await screen.findByText('Active one')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+
+    expect(await screen.findByText('Old one')).toBeInTheDocument();
+    expect(screen.queryByText('Active one')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Archived' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('shows a distinct archived loading and empty state, without the create form', async () => {
+    server.use(
+      http.get(PORTFOLIOS_URL, async ({ request }) => {
+        if (new URL(request.url).searchParams.get('archived') === 'true') {
+          await delay(20);
+          return HttpResponse.json([]);
+        }
+        return HttpResponse.json([]);
+      }),
+    );
+    renderPage();
+    await screen.findByText(/have any portfolios yet/);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+
+    expect(screen.getByText(/Loading your archived portfolios/)).toBeInTheDocument();
+    expect(await screen.findByText(/have any archived portfolios/)).toBeInTheDocument();
+    // The create form belongs to the active view only.
+    expect(screen.queryByRole('button', { name: 'Create portfolio' })).not.toBeInTheDocument();
+  });
+
+  it('returns to the active list when Active is selected again', async () => {
+    serveLists([makePortfolio(1, 'Active one')], [makePortfolio(2, 'Old one', true)]);
+    renderPage();
+    await screen.findByText('Active one');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+    await screen.findByText('Old one');
+    await userEvent.click(screen.getByRole('button', { name: 'Active' }));
+
+    expect(await screen.findByText('Active one')).toBeInTheDocument();
+    expect(screen.queryByText('Old one')).not.toBeInTheDocument();
   });
 
   it('offers a retry after a list failure and recovers on success', async () => {
