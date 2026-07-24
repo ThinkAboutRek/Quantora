@@ -70,10 +70,16 @@ def test_development_secure_cookie_flags_are_off() -> None:
 def test_production_secure_cookie_foundations_are_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Production reads its secret/hosts from the environment at import; supply
-    # throwaway values, then confirm the Secure foundations are set.
+    # Production reads its secret/hosts and the database connection from the
+    # environment at import; supply throwaway values, then confirm the Secure
+    # foundations are set.
     monkeypatch.setenv("DJANGO_SECRET_KEY", "x" * 50)
     monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "api.quantora.test")
+    monkeypatch.setenv("POSTGRES_DB", "throwaway")
+    monkeypatch.setenv("POSTGRES_USER", "throwaway")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "throwaway")
+    monkeypatch.setenv("POSTGRES_HOST", "localhost")
+    monkeypatch.setenv("POSTGRES_PORT", "5432")
 
     production = importlib.reload(importlib.import_module("core.settings.production"))
 

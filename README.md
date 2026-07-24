@@ -212,6 +212,16 @@ The API is then on <http://localhost:8000> and the frontend on
 the full workflow — running migrations, inspecting PostgreSQL and Redis, hot
 reload, logs and health, data persistence, and resets.
 
+### Production container images
+
+The deployable artifacts — the Django API image (Gunicorn, non-root) and the
+React static bundle — are built by the multi-stage Dockerfiles and verified
+locally with `docker-compose.production-check.yml`. See
+[Production container images](docs/operations/containers.md) for the stage maps,
+base-image pins, the API runtime environment contract, and the two-run smoke
+strategy. These are image artifacts only; no registry or cloud deployment exists
+yet.
+
 ### Continuous integration
 
 Continuous integration runs on every pull request and on pushes to `main`, as

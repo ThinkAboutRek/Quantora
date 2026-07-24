@@ -7,6 +7,13 @@
 .gitignore
 .github
 
+# --- Not part of the API build context --------------------------------------
+# The frontend is built from its own context (apps/web) governed by
+# apps/web/.dockerignore; docs and infra never belong in an image.
+apps/
+docs/
+infra/
+
 # --- Python: virtualenv, bytecode, tool caches ------------------------------
 .venv
 **/__pycache__/

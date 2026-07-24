@@ -41,6 +41,9 @@ non-goals from these documents without reading source code. Start with the
 
 * [Local development with Docker Compose](operations/local-development.md) —
   running the full four-service stack (API, frontend, PostgreSQL, Redis) locally.
+* [Production container images](operations/containers.md) — the deployable
+  Django API image and React static bundle: multi-stage builds, pinned base
+  images, the runtime environment contract, and the local verification harness.
 
 ---
 
