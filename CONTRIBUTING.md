@@ -128,6 +128,13 @@ locally with `docker-compose.production-check.yml`. See
 base-image digest pins, the runtime environment contract, and the two-run smoke
 strategy.
 
+The Azure deployment target is defined as subscription-scoped **Bicep** under
+`infra/bicep/`, verified offline (`az bicep build` / `az bicep lint`). It
+provisions nothing on its own — no resource is created until an operator deploys
+it, and CI does not deploy. See
+[Azure foundation](docs/operations/azure-foundation.md) for the module map,
+naming, secure parameters, and the deployment steps.
+
 ---
 
 ## Charting

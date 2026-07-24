@@ -44,6 +44,10 @@ non-goals from these documents without reading source code. Start with the
 * [Production container images](operations/containers.md) — the deployable
   Django API image and React static bundle: multi-stage builds, pinned base
   images, the runtime environment contract, and the local verification harness.
+* [Azure foundation (Bicep thin-slice environment)](operations/azure-foundation.md) —
+  the initial subscription-scoped Bicep infrastructure: module and resource map,
+  naming and tags, secure parameters, the workload-profiles Container Apps
+  environment, cost assumptions, and the operator deployment steps.
 
 ---
 
