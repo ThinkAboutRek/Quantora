@@ -229,6 +229,23 @@ two parallel jobs — one for Python and one for the frontend — each installin
 from a frozen lockfile (`uv sync --all-packages --frozen` and
 `pnpm install --frozen-lockfile`). A failing check blocks the merge.
 
+### Azure infrastructure (Bicep)
+
+The initial Azure environment is defined as subscription-scoped Bicep under
+[`infra/bicep/`](infra/bicep/) and verified offline — it provisions nothing by
+itself. From the repository root:
+
+```powershell
+az bicep build --file infra/bicep/main.bicep --outfile "$env:TEMP\quantora-main.json"
+az bicep lint  --file infra/bicep/main.bicep
+```
+
+The Django Container App is defined but off by default, and no Azure resource is
+created until an operator deploys it. See
+[Azure foundation](docs/operations/azure-foundation.md) for the module and
+resource map, naming and tags, secure parameters, cost assumptions, and the
+operator deployment steps.
+
 ---
 
 ## Documentation

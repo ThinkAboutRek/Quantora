@@ -1,0 +1,26 @@
+{
+  "analyzers": {
+    "core": {
+      "enabled": true,
+      "rules": {
+        "secure-secrets-in-params": { "level": "error" },
+        "secure-parameter-default": { "level": "error" },
+        "secure-params-in-nested-deploy": { "level": "error" },
+        "use-secure-value-for-secure-inputs": { "level": "error" },
+        "outputs-should-not-contain-secrets": { "level": "error" },
+        "adminusername-should-not-be-literal": { "level": "error" },
+        "no-unused-params": { "level": "error" },
+        "no-unused-vars": { "level": "error" },
+        "nested-deployment-template-scoping": { "level": "error" },
+        "use-recent-api-versions": {
+          "level": "warning",
+          "maxAgeInDays": 730,
+          "maxAllowedAgeInDays": 730
+        },
+        "prefer-interpolation": { "level": "warning" },
+        "simplify-interpolation": { "level": "warning" },
+        "prefer-unquoted-property-names": { "level": "warning" }
+      }
+    }
+  }
+}

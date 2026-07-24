@@ -75,6 +75,14 @@ pgdata/
 redisdata/
 *.local
 
+# --- Bicep local artefacts --------------------------------------------------
+# Compiled ARM JSON, what-if/snapshot output, and private local parameter files
+# must never be committed. bicepconfig.json is intentionally tracked.
+infra/bicep/**/*.json
+!infra/bicep/bicepconfig.json
+infra/bicep/**/*.local.bicepparam
+infra/bicep/**/*.snapshot.json
+
 # --- Market data: never commit provider or licensed data --------------------
 # (ADR 001) These categories must never enter version control.
 provider-dumps/
