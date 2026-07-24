@@ -121,6 +121,13 @@ the complete workflow, including why database migrations are run explicitly
 rather than on container startup, how hot reload works for both services, and how
 to inspect or reset local data.
 
+The deployable **production images** (the Gunicorn-served Django API and the
+React static bundle) are built by the multi-stage Dockerfiles and verified
+locally with `docker-compose.production-check.yml`. See
+[Production container images](docs/operations/containers.md) for the stage maps,
+base-image digest pins, the runtime environment contract, and the two-run smoke
+strategy.
+
 ---
 
 ## Charting

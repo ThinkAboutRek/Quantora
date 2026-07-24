@@ -16,6 +16,8 @@ dependencies = [
     "djangorestframework>=3.17.1,<3.18",
     "django-cors-headers>=4.9,<5",
     "psycopg[binary]>=3.2,<3.3",
+    "gunicorn>=26.0,<27",
+    "whitenoise>=6.12,<7",
 ]
 
 [tool.uv]

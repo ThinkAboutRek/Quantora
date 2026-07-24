@@ -1,0 +1,111 @@
+# ============================================================================
+# Quantora — LOCAL PRODUCTION-IMAGE VERIFICATION topology.
+#
+# This file is a verification harness, NOT a deployment descriptor. It exists
+# so the production images (services/api/Dockerfile `production`,
+# apps/web/Dockerfile `static-runtime`) can be smoke-tested locally before any
+# registry or cloud phase exists. Nothing here describes where these images
+# actually run in production (React dist -> Azure Static Web Apps; Django
+# image -> Azure Container Registry / Container Apps, in later phases).
+#
+# IMPORTANT: stop the development stack first (`docker compose down`) — both
+# topologies publish host port 8000.
+#
+# Two-run smoke strategy:
+#   Run A (default)  — DJANGO_SETTINGS_MODULE=core.settings.production.
+#   Run B            — set QUANTORA_CHECK_SETTINGS_MODULE=core.settings.development
+#                      in the invoking shell and `up -d` again; the same image
+#                      then serves the browser walkthrough over plain local
+#                      HTTP (development cookies are not Secure-only).
+#
+# DJANGO_SECURE_SSL_REDIRECT=false is set ONLY here: this topology has no TLS
+# terminator, so the production module's default (True) would answer every
+# plain-HTTP smoke request with a 301 instead of exercising the endpoint.
+# ============================================================================
+
+# Explicit project name: without it Compose derives the directory name, sees
+# the development containers as orphans of the "same" project, and a
+# `--remove-orphans` would delete them.
+name: quantora-production-check
+
+services:
+  postgres:
+    # Same pinned image as the development topology.
+    image: postgres:17.10-alpine3.24
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Dedicated volume for this check — never the development volume.
+      - postgres_data_production_check:/var/lib/postgresql/data
+    # No published host port: only the API container needs to reach it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  django-api-prod:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+      target: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # No bind mounts and no dependency volumes: the image must prove itself
+    # self-contained.
+    env_file: .env
+    environment:
+      # Run A/B switch (see header). Defaults to the production settings.
+      DJANGO_SETTINGS_MODULE: ${QUANTORA_CHECK_SETTINGS_MODULE:-core.settings.production}
+      POSTGRES_HOST: postgres
+      POSTGRES_CONNECT_TIMEOUT: "3"
+      WEB_CONCURRENCY: "2"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      # Local-only. This topology has no TLS terminator, so the production
+      # module's default (SECURE_SSL_REDIRECT=True) would answer every
+      # plain-HTTP smoke probe with a 301. Set false here ONLY; real
+      # deployments keep the default. This block's `environment:` value wins
+      # over any personal `.env` loaded via `env_file:` above. The proper
+      # production wiring — SECURE_PROXY_SSL_HEADER, so Django trusts the
+      # ingress X-Forwarded-Proto instead of redirecting itself — arrives in
+      # Phase 12.
+      DJANGO_SECURE_SSL_REDIRECT: "false"
+    # LIVENESS, deliberately not readiness: stopping PostgreSQL during the
+    # verification (Step 12h) must not make the healthy API process look dead.
+    # Python stdlib urllib — the image carries no curl.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/', timeout=3).status == 200 else 1)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Must exceed gunicorn's 30s graceful timeout so workers can finish
+    # in-flight requests before Docker escalates to SIGKILL.
+    stop_grace_period: 35s
+
+  web-prod:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+      target: static-runtime
+    ports:
+      - "8080:8080"
+    # REQUIRED: nginx resolves the literal upstream hostname when it loads its
+    # configuration and exits with "host not found in upstream" if the API
+    # container does not exist yet. The service name django-api-prod must
+    # match the upstream in apps/web/nginx/default.conf exactly.
+    depends_on:
+      - django-api-prod
+
+volumes:
+  postgres_data_production_check:
