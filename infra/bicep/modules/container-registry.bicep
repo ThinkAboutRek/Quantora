@@ -47,6 +47,25 @@ resource containerRegistry 'Microsoft.ContainerRegistry/registries@2025-11-01' =
     publicNetworkAccess: 'Enabled'
     zoneRedundancy: 'Disabled'
     roleAssignmentMode: 'LegacyRegistryPermissions'
+    // ARM audience token authentication is a hard PREREQUISITE for Container
+    // Apps managed-identity image pull: the pull path exchanges an ARM-audience
+    // token at the registry, and a registry that refuses them cannot be pulled
+    // from by a managed identity at all.
+    //
+    // It is declared explicitly rather than left to the service default so this
+    // template is the source of truth: if a future subscription-level policy
+    // disabled ARM audience tokens on this registry, the next deployment would
+    // revert it. That is intended behaviour, not an accident.
+    policies: {
+      // Lowercase 'enabled': the ContainerRegistry policy status enum is
+      // lowercase in Microsoft's examples and in `az acr config
+      // authentication-as-arm update --status`. Bicep types this property
+      // loosely, so a casing mismatch would compile and preview cleanly and
+      // fail only at Deployment A.
+      azureADAuthenticationAsArmPolicy: {
+        status: 'enabled'
+      }
+    }
   }
 }
 

@@ -121,7 +121,7 @@ RUN DJANGO_SETTINGS_MODULE=core.settings.production \
     DJANGO_SECRET_KEY=build-time-placeholder-not-a-secret \
     DJANGO_ALLOWED_HOSTS=localhost \
     POSTGRES_DB=build POSTGRES_USER=build POSTGRES_PASSWORD=build \
-    POSTGRES_HOST=localhost POSTGRES_PORT=5432 \
+    POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_SSLMODE=disable \
     python manage.py collectstatic --noinput
 
 # Bake the application bytecode so the read-only runtime never recompiles it

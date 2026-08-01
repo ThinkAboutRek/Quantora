@@ -9,6 +9,12 @@ Phase 11 **defines** infrastructure. It creates no Azure resources, pushes no
 image, runs no migration, and deploys no application. The operator performs the
 actual deployment after reviewing this document and the Bicep.
 
+> **The deployment itself is [First Azure deployment](first-azure-deployment.md).**
+> That document is the Phase 12 operator runbook: the three deployment states,
+> the eight gates, secret handling, the manual migration job, proxy-aware HTTPS,
+> PostgreSQL client TLS, cross-origin sessions, Static Web Apps routing, and
+> rollback. This document remains the reference for what the infrastructure *is*.
+
 ---
 
 ## Phase 11 versus Phase 12 boundary
@@ -58,6 +64,7 @@ App.
 | [`modules/postgresql.bicep`](../../infra/bicep/modules/postgresql.bicep) | PostgreSQL Flexible Server + database + optional broad firewall rule |
 | [`modules/static-web-app.bicep`](../../infra/bicep/modules/static-web-app.bicep) | Static Web App (Free) |
 | [`modules/container-app-api.bicep`](../../infra/bicep/modules/container-app-api.bicep) | Django API Container App (conditional; off by default) |
+| [`modules/container-app-job-migrate.bicep`](../../infra/bicep/modules/container-app-job-migrate.bicep) | Manually triggered Django migration job (conditional; off by default). **Added by Phase 12 enablement**, not Phase 11. |
 
 ### Resource map
 
@@ -132,6 +139,7 @@ to the Bicep toolchain, resolved from the installed type metadata:
 | `Microsoft.Authorization/roleAssignments` | `2022-04-01` |
 | `Microsoft.App/managedEnvironments` | `2026-01-01` |
 | `Microsoft.App/containerApps` | `2026-01-01` |
+| `Microsoft.App/jobs` | `2026-01-01` (added by Phase 12 enablement) |
 | `Microsoft.DBforPostgreSQL/flexibleServers` (+ `databases`, `firewallRules`) | `2025-08-01` |
 | `Microsoft.Web/staticSites` | `2025-03-01` |
 
@@ -282,6 +290,22 @@ the built-in AcrPull role is honoured. Under `AbacRepositoryPermissions`
 require replacing AcrPull with an appropriate repository-reader role and
 revisiting this property.
 
+**ARM audience tokens (added by Phase 12 enablement).** The registry also
+declares `properties.policies.azureADAuthenticationAsArmPolicy.status: 'enabled'`
+(lowercase — the ContainerRegistry policy status enum is lowercase in Microsoft's
+examples and in `az acr config authentication-as-arm update --status`).
+Container Apps managed-identity image pull exchanges an **ARM audience** token at
+the registry, so a registry that refuses them cannot be pulled from by a managed
+identity at all — this is a hard prerequisite, not a hardening option. It is
+declared explicitly rather than left to the service default so the template stays
+the source of truth: a future subscription policy disabling ARM audience tokens
+would be reverted by the next deployment. The property is confirmed **expressible**
+at the pinned `2025-11-01` API version (the Bicep type metadata resolves
+`AzureADAuthenticationAsArmPolicy`), but — exactly like `roleAssignmentMode` — the
+enum value is typed loosely, so offline verification cannot prove ARM accepts
+`'enabled'`; a casing mismatch would compile and preview cleanly and surface only
+at Deployment A. That is a Phase 12 deployment-evidence item.
+
 **ARM enum acceptance is not yet proven.** `LegacyRegistryPermissions` is set
 explicitly and appears in the what-if evaluated payload with no rejection, but that
 is not proof ARM accepts the enum value: validation short-circuited the registry
@@ -358,10 +382,34 @@ Only variables the production settings module
 | `POSTGRES_PASSWORD` | Container App secret `database-password` |
 | `POSTGRES_CONNECT_TIMEOUT` | `3` (bounded, ≥ 2; below the readiness probe timeout) |
 
-`WEB_CONCURRENCY` is intentionally **not** set here: it is read by Gunicorn, not
-by the Django settings module, and the Phase 10 image already sets a default of
-`2`. Cross-origin, CSRF, SameSite, secure-cookie, and proxy-header variables are
-**not** set — that configuration is Phase 12 work (see carry-forward obligations).
+The six rows below were **added by Phase 12 enablement**. The migration job
+receives `POSTGRES_SSLMODE` and `POSTGRES_SSLROOTCERT` as well; it deliberately
+receives none of the others (the three Django cross-origin/cookie variables are
+each optional in the settings package, and neither they nor the worker count
+affect a management command that serves no request):
+
+| Variable | Source |
+| -------- | ------ |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | the Static Web App default hostname, as `https://<hostname>` |
+| `DJANGO_CORS_ALLOWED_ORIGINS` | the same single exact origin |
+| `DJANGO_COOKIE_SAMESITE` | `None` — the SPA is cross-**site**, and both cookies are already Secure |
+| `POSTGRES_SSLMODE` | `verify-full` (root parameter; required by the settings module, which has no default) |
+| `POSTGRES_SSLROOTCERT` | `/etc/ssl/certs/ca-certificates.crt` (root parameter; required whenever the mode verifies) |
+| `WEB_CONCURRENCY` | `2`, committed in [`development.bicepparam`](../../infra/bicep/environments/development.bicepparam) as the root parameter `apiWebConcurrency`, which feeds the module's `webConcurrency` |
+
+**`WEB_CONCURRENCY` is now set here.** Phase 11 deliberately omitted it because it
+is read by Gunicorn rather than by the Django settings module, and the Phase 10
+image already bakes `WEB_CONCURRENCY=2`; that omission is reversed. The value now
+lives in **two** places — the image `ENV` and this template — and the template
+wins, because a Container App environment variable overrides the image's `ENV` for
+the same name; the image default only applies where the template does not set it
+(the migration job, and any plain `docker run`). Keeping both means the worker
+count is explicit and reviewable in the deployment descriptor without the image
+losing a sane standalone default.
+
+The proxy-header setting is a **literal in the settings module**, not an
+environment variable, so it appears in no table here (see
+[First Azure deployment](first-azure-deployment.md) §7).
 
 ### Probes
 
@@ -467,8 +515,14 @@ amendment.
 ## Carry-forward application obligations for Phase 12
 
 These are application-settings changes Phase 12 must make. **Phase 11 does not
-modify the Phase 10 image or Django settings to implement them, and they are not
-implemented yet.**
+modify the Phase 10 image or Django settings to implement them.**
+
+> **Status after Phase 12 enablement: every item below is still OPEN.** The
+> repository enablement commit writes the settings and the Bicep, but writing
+> source is not evidence. Each item is **carried into the deployment sequence**
+> in [First Azure deployment](first-azure-deployment.md) and is resolved only by
+> observed behaviour against real Azure resources — which belongs to the
+> deployment commit, not to this one. Nothing here is marked resolved.
 
 1. **`SECURE_PROXY_SSL_HEADER` — required before the first Phase 12 deployment.**
    HTTPS redirects are **already on**, not a switch Phase 12 turns on: the
@@ -508,6 +562,19 @@ implemented yet.**
 `DJANGO_ALLOWED_HOSTS` is set to the app FQDN. Phase 12 should confirm the
 Container Apps health-probe host behaviour against `ALLOWED_HOSTS` when the app is
 first brought up.
+
+### The watch list carried into the deployment sequence
+
+Five items, all **open**, each with the gate that produces its evidence. See
+[First Azure deployment](first-azure-deployment.md) for the gates themselves.
+
+| # | Watch item | Evidence that would close it | Gate |
+| - | ---------- | ---------------------------- | ---- |
+| 1 | **AcrPull role assignment was never evaluated** by what-if (`Unsupported` / `WhatIfUnidentifiableResource`); its scope, role definition, and `principalType` are confirmed from the module only. | The assignment exists at registry scope after Deployment A **and** an image pull actually succeeds. | 3, 6 |
+| 2 | **ARM acceptance of `roleAssignmentMode: 'LegacyRegistryPermissions'`** is unproven — Bicep types it loosely, so a rejected or silently-defaulted value would compile and preview cleanly. | The created registry reports `LegacyRegistryPermissions`. | 3 |
+| 3 | **`SECURE_PROXY_SSL_HEADER`.** Now written as a literal in `core/settings/production.py` and covered by tests, but never exercised behind real Container Apps ingress. | `GET /api/v1/health/` over the ingress returns **200**, not 301, and a login sets a `Secure` cookie. | 6, 8 |
+| 4 | **PostgreSQL client TLS.** `verify-full` plus the system CA bundle path is now configured, and the bundle was inspected by certificate content in the built image — but no handshake against a real Azure server has occurred, because the server does not exist until Deployment A. | The migration job connects and completes, and the readiness probe returns 200. | 5, 6 |
+| 5 | **ARM acceptance of `azureADAuthenticationAsArmPolicy: 'enabled'`** (newly identified). It is a hard prerequisite for managed-identity image pull and is now declared in Bicep; the property is expressible at the pinned API version, but the enum value is typed loosely, so acceptance — including its **casing** — is unproven offline. | The created registry reports the policy enabled **and** the identity-based pull succeeds. | 3, 6 |
 
 ---
 

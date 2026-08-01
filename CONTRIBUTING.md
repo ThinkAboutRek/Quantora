@@ -133,7 +133,10 @@ The Azure deployment target is defined as subscription-scoped **Bicep** under
 provisions nothing on its own — no resource is created until an operator deploys
 it, and CI does not deploy. See
 [Azure foundation](docs/operations/azure-foundation.md) for the module map,
-naming, secure parameters, and the deployment steps.
+naming, secure parameters, and the deployment steps, and
+[First Azure deployment](docs/operations/first-azure-deployment.md) for the
+operator runbook that actually brings the environment up — the three deployment
+states, the eight gates, and the manual migration job.
 
 ---
 

@@ -48,6 +48,10 @@ non-goals from these documents without reading source code. Start with the
   the initial subscription-scoped Bicep infrastructure: module and resource map,
   naming and tags, secure parameters, the workload-profiles Container Apps
   environment, cost assumptions, and the operator deployment steps.
+* [First Azure deployment](operations/first-azure-deployment.md) — the operator
+  runbook for the first vertical slice: the three deployment states, the eight
+  gates, secret handling, the manual migration job, proxy-aware HTTPS, PostgreSQL
+  client TLS, cross-origin sessions, Static Web Apps routing, and rollback.
 
 ---
 

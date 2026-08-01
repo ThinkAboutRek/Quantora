@@ -80,6 +80,9 @@ def test_production_secure_cookie_foundations_are_on(
     monkeypatch.setenv("POSTGRES_PASSWORD", "throwaway")
     monkeypatch.setenv("POSTGRES_HOST", "localhost")
     monkeypatch.setenv("POSTGRES_PORT", "5432")
+    # Required with no default, so it must be supplied here too. The client TLS
+    # contract itself is covered by tests/test_production_settings.py.
+    monkeypatch.setenv("POSTGRES_SSLMODE", "require")
 
     production = importlib.reload(importlib.import_module("core.settings.production"))
 
