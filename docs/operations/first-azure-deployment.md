@@ -102,9 +102,33 @@ value; neither composes a tag internally.
 | 3 | **Deployment A** — `az deployment sub what-if`, review, then `create`. | **Yes** — creates the foundation. |
 | 4 | **Image push** — build `linux/amd64` with `--build-arg APP_REVISION=<full commit sha>` and `--build-arg APP_VERSION=<short sha>`, which feed the existing `org.opencontainers.image.revision` and `.version` labels (both `ARG`s are already in `services/api/Dockerfile`, so this needs **no** Dockerfile change); tag, `az acr login`, push, record the digest, then verify the resulting labels on the pushed image with `docker image inspect --format "{{json .Config.Labels}}"`. | **Yes** — writes to the registry. |
 | 5 | **Deployment B + migration run** — deploy the job, start it once, read logs and exit status. | **Yes** — opens the firewall, creates and runs the job. |
-| 6 | **Deployment C** — deploy the Django Container App, confirm image pull and readiness. | **Yes** — creates the app. |
+| 6 | **Deployment C** — deploy the Django Container App, confirm image pull and readiness, and check the probe log status codes (see below). | **Yes** — creates the app. |
 | 7 | **Static Web Apps upload** — retrieve the deployment token, upload `dist`. | **Yes** — publishes the frontend. |
 | 8 | **Browser verification and sign-off** — the §12 checklist, then either accept or roll back. | No (verification only). |
+
+### Gate 6: the probe headers, and the 301 trap
+
+All three probes must send **two** `httpHeaders`, and the template sets them:
+
+* **`Host`**, taken from the same variable that feeds `DJANGO_ALLOWED_HOSTS`.
+  Probes arrive over loopback, so their `Host` is the local address. Django's
+  `CommonMiddleware.process_request` calls `request.get_host()` unconditionally
+  to evaluate `PREPEND_WWW`, so `ALLOWED_HOSTS` is validated on **every**
+  request — a foreign `Host` yields `DisallowedHost` and a **400**, and the
+  revision never activates.
+* **`X-Forwarded-Proto: https`**, because a loopback request is otherwise not
+  secure and `SECURE_SSL_REDIRECT` answers **301**.
+
+**The trap: Container Apps counts any status from 200 to 399 as a passing
+probe.** Setting only the `Host` header therefore produces a revision that goes
+`Healthy` while every probe is being answered with a 301 and the readiness view
+is never executed — readiness would report ready even with PostgreSQL
+unreachable. A green revision is not evidence on its own.
+
+**So verify the probe status codes, not just the revision state.** Read the
+container console log and confirm Gunicorn logged **200** for the probe requests
+from `127.0.0.1` on both `/api/v1/health/` and `/api/v1/health/ready/`. A 301
+means the fix is incomplete; a 400 means the `Host` header is not being honoured.
 
 Gates 1 and 2 are read-only reviews. Gates 3–7 mutate Azure. Gate 8 is
 verification. No gate may be skipped, and no gate may be run out of order.
