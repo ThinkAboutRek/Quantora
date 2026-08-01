@@ -50,6 +50,15 @@ param djangoSettingsModule string
 @minLength(1)
 param djangoSecretKey string
 
+@description('Comma-separated exact origins for DJANGO_CSRF_TRUSTED_ORIGINS (scheme://host, no path).')
+param djangoCsrfTrustedOrigins string
+
+@description('Comma-separated exact origins for DJANGO_CORS_ALLOWED_ORIGINS (scheme://host, no path).')
+param djangoCorsAllowedOrigins string
+
+@description('Cookie SameSite policy for DJANGO_COOKIE_SAMESITE. "None" is required for the cross-site SPA and is only valid because both cookies are already Secure in the production settings module.')
+param djangoCookieSameSite string
+
 @description('Runtime database username (maps to POSTGRES_USER). Deliberately a generic runtime name, not a PostgreSQL administrator parameter name.')
 param databaseUsername string
 
@@ -68,6 +77,15 @@ param databaseName string
 
 @description('POSTGRES_CONNECT_TIMEOUT in seconds (string). Kept below the readiness probe timeout so a down database yields a clean 503, not a probe timeout.')
 param postgresConnectTimeout string
+
+@description('libpq client TLS mode for POSTGRES_SSLMODE. The settings module requires it and has no default.')
+param postgresSslMode string
+
+@description('Certificate authority bundle path for POSTGRES_SSLROOTCERT. Required by the settings module whenever the mode verifies the chain.')
+param postgresSslRootCert string
+
+@description('WEB_CONCURRENCY — the Gunicorn worker count, as a string. Read by Gunicorn, not by the Django settings module. The image bakes the same value, but setting it here makes the deployed value explicit and template-owned: a Container App environment variable overrides the image ENV. No default — every parameter in this module is required.')
+param webConcurrency string
 
 @description('Database-independent liveness path (with trailing slash).')
 param livenessPath string
@@ -158,6 +176,18 @@ resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
               value: '${containerAppName}.${environmentDefaultDomain}'
             }
             {
+              name: 'DJANGO_CSRF_TRUSTED_ORIGINS'
+              value: djangoCsrfTrustedOrigins
+            }
+            {
+              name: 'DJANGO_CORS_ALLOWED_ORIGINS'
+              value: djangoCorsAllowedOrigins
+            }
+            {
+              name: 'DJANGO_COOKIE_SAMESITE'
+              value: djangoCookieSameSite
+            }
+            {
               name: 'POSTGRES_HOST'
               value: postgresHost
             }
@@ -180,6 +210,18 @@ resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
             {
               name: 'POSTGRES_CONNECT_TIMEOUT'
               value: postgresConnectTimeout
+            }
+            {
+              name: 'POSTGRES_SSLMODE'
+              value: postgresSslMode
+            }
+            {
+              name: 'POSTGRES_SSLROOTCERT'
+              value: postgresSslRootCert
+            }
+            {
+              name: 'WEB_CONCURRENCY'
+              value: webConcurrency
             }
           ]
           probes: [

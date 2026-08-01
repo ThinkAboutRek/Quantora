@@ -73,9 +73,16 @@ services:
       # deployments keep the default. This block's `environment:` value wins
       # over any personal `.env` loaded via `env_file:` above. The proper
       # production wiring — SECURE_PROXY_SSL_HEADER, so Django trusts the
-      # ingress X-Forwarded-Proto instead of redirecting itself — arrives in
-      # Phase 12.
+      # ingress X-Forwarded-Proto instead of redirecting itself — is now set
+      # unconditionally in the production settings module; this override
+      # remains only because there is no TLS terminator here at all.
       DJANGO_SECURE_SSL_REDIRECT: "false"
+      # Local compatibility value. The official postgres image this topology
+      # runs does not serve TLS, so any requiring or verifying mode would fail
+      # the connection outright. Azure uses `verify-full`. The settings module
+      # has NO default for POSTGRES_SSLMODE precisely so this weak local value
+      # cannot leak into a real deployment by being silently inherited.
+      POSTGRES_SSLMODE: "disable"
     # LIVENESS, deliberately not readiness: stopping PostgreSQL during the
     # verification (Step 12h) must not make the healthy API process look dead.
     # Python stdlib urllib — the image carries no curl.

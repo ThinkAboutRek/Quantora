@@ -141,7 +141,9 @@ variable below is supplied at runtime.
 | `POSTGRES_HOST`              | yes       | no      | |
 | `POSTGRES_PORT`              | yes       | no      | |
 | `POSTGRES_CONNECT_TIMEOUT`   | no        | no      | Bounded positive int; default `3`; **rejected below 2** (libpq does not usefully honour smaller). Operational config, not a secret. |
-| `WEB_CONCURRENCY`            | no        | no      | Gunicorn's documented worker-count source; image default `2`, overridable. |
+| `POSTGRES_SSLMODE`           | **yes**   | no      | libpq client TLS mode; one of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`. **No default** — see §4.2. Also required by the `collectstatic` build step, which sets `disable` inline because it opens no connection. |
+| `POSTGRES_SSLROOTCERT`       | conditional | no    | Certificate authority bundle **path**. Required when `POSTGRES_SSLMODE` is `verify-ca` or `verify-full`; ignored (and not passed to libpq) otherwise. |
+| `WEB_CONCURRENCY`            | no        | no      | Gunicorn's documented worker-count source; image default `2`, overridable. The Azure Container App sets it explicitly (also `2`), and a Container App environment variable overrides the image `ENV`. |
 | `DJANGO_COOKIE_SAMESITE`     | no        | no      | Existing cookie contract; unchanged in Phase 10. |
 | `DJANGO_CSRF_TRUSTED_ORIGINS`| no        | no      | Existing; environment-driven, no baked domains. |
 | `DJANGO_CORS_ALLOWED_ORIGINS`| no        | no      | Existing; environment-driven, no baked domains. |
@@ -181,12 +183,46 @@ HTTP → HTTPS redirect and set `SECURE_PROXY_SSL_HEADER =
 ("HTTP_X_FORWARDED_PROTO", "https")` in Django. Leaving `SECURE_SSL_REDIRECT` on
 in Django as well is a valid but **redundant** belt-and-braces alternative.
 
+> **Taken.** The production settings module now sets exactly that header as a
+> literal, and `SECURE_SSL_REDIRECT` is unchanged — the belt-and-braces variant.
+> The header name is deliberately **not** environment-driven, so no
+> misconfiguration can point it at a caller-controlled header.
+
 One caution for that phase: `X-Forwarded-Proto` must **not** be trusted on any
 path that is not the external edge ingress. Internal Container Apps traffic has
 been observed to carry `https` on plain-HTTP internal (app-to-app) calls, so
 trusting the header on internal routes would misreport the scheme.
 
 [aca-ingress]: https://learn.microsoft.com/en-us/azure/container-apps/ingress-overview
+
+### 4.2 PostgreSQL client TLS, and why the local value is `disable`
+
+`POSTGRES_SSLMODE` is **required with no default**. That is deliberate: a default
+would be a value that could silently reach a real deployment if the variable were
+ever dropped, which is the same reasoning that makes `DJANGO_ALLOWED_HOSTS` fail
+loudly. Azure uses `verify-full` — chain **and** hostname verification — with
+`POSTGRES_SSLROOTCERT=/etc/ssl/certs/ca-certificates.crt`, the Debian system CA
+bundle already inside the image.
+
+`docker-compose.production-check.yml` sets `POSTGRES_SSLMODE=disable` in the
+**tracked** file, never in a personal `.env`. The official `postgres` image this
+topology runs does not serve TLS at all, so any requiring or verifying mode would
+fail the connection outright and break the Run A smoke checks. Because the
+settings module has no default, that weak local value cannot leak into a
+deployment by being silently inherited — it only applies where it is written.
+
+`POSTGRES_SSLROOTCERT` is passed to libpq **only** for the two verifying modes,
+and is required there: without it libpq falls back to `~/.postgresql/root.crt`,
+which does not exist for the non-root UID 10001 runtime user, and the failure
+reads like a missing certificate authority rather than a missing path.
+
+### 4.3 The SPA fallback now exists in two places
+
+The single-page-app fallback is expressed twice, by two different mechanisms with
+one intent: `apps/web/nginx/default.conf` (`try_files $uri /index.html`) for the
+local verification server, and `apps/web/public/staticwebapp.config.json`
+(`navigationFallback`) for Azure Static Web Apps — so a change to deep-link,
+asset-caching, or `/api/` behaviour must be made in both.
 
 ---
 

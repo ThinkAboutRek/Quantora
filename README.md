@@ -244,7 +244,11 @@ The Django Container App is defined but off by default, and no Azure resource is
 created until an operator deploys it. See
 [Azure foundation](docs/operations/azure-foundation.md) for the module and
 resource map, naming and tags, secure parameters, cost assumptions, and the
-operator deployment steps.
+operator deployment steps, and
+[First Azure deployment](docs/operations/first-azure-deployment.md) for the
+operator runbook that brings the environment up: the three deployment states, the
+eight gates, the manual migration job, proxy-aware HTTPS, PostgreSQL client TLS,
+and cross-origin sessions.
 
 ---
 
