@@ -93,6 +93,37 @@ param livenessPath string
 @description('Database-backed readiness path (with trailing slash).')
 param readinessPath string
 
+// The single host Django accepts. Composed ONCE here and used both for
+// DJANGO_ALLOWED_HOSTS and as the probe Host header below, so the allow-list and
+// the probes cannot drift apart.
+var apiAllowedHost = '${containerAppName}.${environmentDefaultDomain}'
+
+// Headers attached to all three health probes. Both are required; either one
+// alone leaves a real failure hidden.
+//
+// Host — Container Apps probes arrive over loopback, so their Host header is the
+//   local address, not the app FQDN. Django's CommonMiddleware.process_request
+//   calls request.get_host() unconditionally in order to evaluate PREPEND_WWW,
+//   so ALLOWED_HOSTS is validated on EVERY request regardless of the view. A
+//   foreign Host therefore raises DisallowedHost and Django answers 400, which
+//   fails the startup probe and the revision never activates.
+//
+// X-Forwarded-Proto — without it the loopback request is not secure, so
+//   SECURE_SSL_REDIRECT answers 301 instead of running the view. Container Apps
+//   counts ANY status from 200 to 399 as a passing probe, so fixing only the
+//   Host would make the revision go healthy while the readiness view never
+//   executed — readiness would report ready even with PostgreSQL unreachable.
+var probeHttpHeaders = [
+  {
+    name: 'Host'
+    value: apiAllowedHost
+  }
+  {
+    name: 'X-Forwarded-Proto'
+    value: 'https'
+  }
+]
+
 // ---------------------------------------------------------------------------
 // Probe timings — chosen and justified:
 //
@@ -173,7 +204,7 @@ resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
             }
             {
               name: 'DJANGO_ALLOWED_HOSTS'
-              value: '${containerAppName}.${environmentDefaultDomain}'
+              value: apiAllowedHost
             }
             {
               name: 'DJANGO_CSRF_TRUSTED_ORIGINS'
@@ -231,6 +262,7 @@ resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
                 path: livenessPath
                 port: containerPort
                 scheme: 'HTTP'
+                httpHeaders: probeHttpHeaders
               }
               initialDelaySeconds: 5
               periodSeconds: 5
@@ -244,6 +276,7 @@ resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
                 path: livenessPath
                 port: containerPort
                 scheme: 'HTTP'
+                httpHeaders: probeHttpHeaders
               }
               periodSeconds: 30
               timeoutSeconds: 3
@@ -256,6 +289,7 @@ resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
                 path: readinessPath
                 port: containerPort
                 scheme: 'HTTP'
+                httpHeaders: probeHttpHeaders
               }
               periodSeconds: 10
               timeoutSeconds: 5

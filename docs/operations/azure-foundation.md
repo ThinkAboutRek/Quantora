@@ -563,6 +563,37 @@ modify the Phase 10 image or Django settings to implement them.**
 Container Apps health-probe host behaviour against `ALLOWED_HOSTS` when the app is
 first brought up.
 
+> **Confirmed — negatively — and fixed.** At the first deployment the revision
+> reached `ActivationFailed` with 0 replicas. Gunicorn started normally and then
+> logged `"GET /api/v1/health/ HTTP/1.1" 400` for every probe from `127.0.0.1`,
+> twelve times per attempt until the startup probe gave up
+> (`ContainerTerminated … reason 'ProbeFailure'`).
+>
+> Two chained causes, both now fixed in
+> [`container-app-api.bicep`](../../infra/bicep/modules/container-app-api.bicep):
+>
+> 1. **Host.** Probes arrive over loopback, so their `Host` header is the local
+>    address rather than the app FQDN. Django's
+>    `CommonMiddleware.process_request` calls `request.get_host()` unconditionally
+>    to evaluate `PREPEND_WWW`, so `ALLOWED_HOSTS` is validated on **every**
+>    request whatever the view does — a foreign `Host` raises `DisallowedHost`
+>    and returns 400.
+> 2. **Scheme.** A loopback request carries no `X-Forwarded-Proto`, so
+>    `request.is_secure()` is False and `SECURE_SSL_REDIRECT` answers 301. Since
+>    Container Apps counts **any status from 200 to 399** as a passing probe,
+>    fixing only the Host would have turned the revision healthy while the
+>    readiness view never executed — readiness would then report ready even with
+>    PostgreSQL unreachable.
+>
+> The fix sets both `Host` and `X-Forwarded-Proto: https` as probe `httpHeaders`
+> on all three probes, with the `Host` value taken from the same variable that
+> feeds `DJANGO_ALLOWED_HOSTS` so the two cannot drift. `ALLOWED_HOSTS` was
+> **not** widened, and no Django setting was changed. Rejected alternatives:
+> adding `127.0.0.1`/`localhost` to the allow-list (relaxes a security control and
+> leaves cause 2 unaddressed); `SECURE_REDIRECT_EXEMPT` (does not help, because
+> `CommonMiddleware` validates the host before any redirect decision); disabling
+> `SECURE_SSL_REDIRECT` (ruled out at the planning gate).
+
 ### The watch list carried into the deployment sequence
 
 Five items, all **open**, each with the gate that produces its evidence. See
